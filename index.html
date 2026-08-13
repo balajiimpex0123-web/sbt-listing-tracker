@@ -22,6 +22,8 @@
     --status-live-bg:#e5f2e7;
     --status-issue:#b5473a;
     --status-issue-bg:#fbe8e5;
+    --status-na:#8a8171;
+    --status-na-bg:#e8e4d8;
     --radius:10px;
   }
   *{box-sizing:border-box;}
@@ -117,6 +119,7 @@
   .type-chip.process{background:var(--status-process-bg);color:var(--status-process);}
   .type-chip.live{background:var(--status-live-bg);color:var(--status-live);}
   .type-chip.issue{background:var(--status-issue-bg);color:var(--status-issue);}
+  .type-chip.na{background:var(--status-na-bg);color:var(--status-na);font-style:italic;}
   .type-chip .dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
   .flag{color:var(--status-issue);}
 
@@ -152,6 +155,7 @@
   .status-options .opt.sel-process.active{border-color:var(--status-process);background:var(--status-process-bg);color:var(--status-process);}
   .status-options .opt.sel-live.active{border-color:var(--status-live);background:var(--status-live-bg);color:var(--status-live);}
   .status-options .opt.sel-issue.active{border-color:var(--status-issue);background:var(--status-issue-bg);color:var(--status-issue);}
+  .status-options .opt.sel-na.active{border-color:var(--status-na);background:var(--status-na-bg);color:var(--status-na);}
   .type-section{border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:14px;}
   .type-section .type-title{font-weight:700;font-size:13px;margin-bottom:2px;}
   .price-row{display:flex;gap:8px;align-items:center;}
@@ -202,6 +206,7 @@
       <option value="process">In process</option>
       <option value="live">Live</option>
       <option value="issue">Issue</option>
+      <option value="na">Not applicable</option>
       <option value="pricedue">Price check due</option>
     </select>
     <div class="spacer"></div>
@@ -291,7 +296,7 @@ const STORAGE_KEY = 'sbt-listing-tracker-data';
 const SHARED = true;
 const SIX_MONTHS_MS = 182 * 24 * 60 * 60 * 1000;
 
-const STATUS_LABEL = {none:'Not started', process:'In process', live:'Live', issue:'Issue'};
+const STATUS_LABEL = {none:'Not started', process:'In process', live:'Live', issue:'Issue', na:'Not applicable'};
 const TYPE_LABEL = {mapping:'Mapping', brand:'Own Brand'};
 
 let state = {
@@ -666,6 +671,7 @@ function openStatusModal(pid, portalId){
         <div class="opt sel-process ${s.status==='process'?'active':''}" data-v="process">In process</div>
         <div class="opt sel-live ${s.status==='live'?'active':''}" data-v="live">Live</div>
         <div class="opt sel-issue ${s.status==='issue'?'active':''}" data-v="issue">Issue</div>
+        <div class="opt sel-na ${s.status==='na'?'active':''}" data-v="na">Not applicable</div>
       </div>
       <label>Note (optional)</label>
       <textarea class="f-note" data-type="${type}" placeholder="e.g. mapping pending, rejected for image issue…">${escapeHtml(s.note||'')}</textarea>
