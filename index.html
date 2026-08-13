@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SBT Listing Tracker</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --ink:#1c1a17;
@@ -292,8 +294,21 @@
 </div>
 
 <script>
-const STORAGE_KEY = 'sbt-listing-tracker-data';
-const SHARED = true;
+/* ============================================================
+   FIREBASE SETUP — paste your config from the Firebase console
+   (Project settings → Your apps → the firebaseConfig object)
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyA8eM1fboBKh_5uzZqwo5g5U56TRCmGJA4",
+  authDomain: "sbt-listing-tracker.firebaseapp.com",
+  projectId: "sbt-listing-tracker",
+  storageBucket: "sbt-listing-tracker.firebasestorage.app",
+  messagingSenderId: "501837641363",
+  appId: "1:501837641363:web:0d33e9046ffd8a48227f66"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const BOARD_REF = db.collection('sbt-tracker').doc('board');
 const SIX_MONTHS_MS = 182 * 24 * 60 * 60 * 1000;
 
 const STATUS_LABEL = {none:'Not started', process:'In process', live:'Live', issue:'Issue', na:'Not applicable'};
@@ -510,19 +525,33 @@ function escapeHtml(s){
 }
 function shortName(name){ return name.length > 20 ? name.slice(0,19) + '…' : name; }
 
-async function loadState(){
-  try{
-    const res = await window.storage.get(STORAGE_KEY, SHARED);
-    if(res && res.value){
-      const parsed = JSON.parse(res.value);
-      state = Object.assign(state, parsed);
+let firstSnapshotReceived = false;
+function startRealtimeSync(){
+  BOARD_REF.onSnapshot(snap => {
+    if(snap.exists){
+      const data = snap.data();
+      if(data.stateJson){
+        try{
+          const parsed = JSON.parse(data.stateJson);
+          state = Object.assign(state, parsed);
+        }catch(e){ console.error('Could not parse saved data', e); }
+      }
     }
-  }catch(e){ console.log('No existing data yet, starting fresh.'); }
-  render();
+    firstSnapshotReceived = true;
+    render();
+  }, err => {
+    console.error('Realtime sync error', err);
+    if(!firstSnapshotReceived){ render(); } // fall back to local defaults so the page isn't blank
+    alert('Could not connect to the shared board. Check your internet connection, or the Firebase setup, and reload.');
+  });
 }
 async function saveState(){
-  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(state), SHARED); }
-  catch(e){ console.error('Storage save failed', e); alert('Could not save — please try again.'); }
+  try{
+    await BOARD_REF.set({ stateJson: JSON.stringify(state), updatedAt: new Date().toISOString() });
+  }catch(e){
+    console.error('Storage save failed', e);
+    alert('Could not save — please check your internet connection and try again.');
+  }
 }
 
 function renderFilterPortalOptions(){
@@ -829,7 +858,7 @@ document.getElementById('filterPortal').addEventListener('change', e => { filter
 document.getElementById('filterStatus').addEventListener('change', e => { filters.status = e.target.value; renderBody(); });
 
 /* ---------- init ---------- */
-loadState();
+startRealtimeSync();
 </script>
 </body>
 </html>
