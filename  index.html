@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SBT Listing Tracker</title>
+<style>
+  :root{
+    --ink:#1c1a17;
+    --paper:#f6f3ec;
+    --panel:#ffffff;
+    --line:#e4ddd0;
+    --muted:#8a8171;
+    --flipkart:#2874b6;
+    --amazon:#c96a1e;
+    --brand:#4b6b53;
+    --status-none:#c7c0b0;
+    --status-none-bg:#efeade;
+    --status-process:#b7841e;
+    --status-process-bg:#faf1dc;
+    --status-live:#3e7a4c;
+    --status-live-bg:#e5f2e7;
+    --status-issue:#b5473a;
+    --status-issue-bg:#fbe8e5;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Iowan Old Style','Georgia',serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1200px;margin:0 auto;padding:28px 20px 80px;}
+
+  header.top{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:22px;
+    flex-wrap:wrap;gap:10px;
+  }
+  header.top h1{font-size:26px;margin:0;font-weight:600;}
+  header.top .sub{
+    font-family:'Helvetica Neue',Arial,sans-serif;font-size:11.5px;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--muted);margin-top:4px;
+  }
+  header.top .meta{
+    font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;color:var(--muted);text-align:right;
+  }
+
+  .summary{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:26px;
+  }
+  .sum-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px 14px;position:relative;overflow:hidden;
+  }
+  .sum-card .bar{position:absolute;top:0;left:0;height:3px;}
+  .sum-card .name{
+    font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;text-transform:uppercase;
+    letter-spacing:1px;color:var(--muted);margin-bottom:6px;
+  }
+  .sum-card .frac{font-size:20px;font-weight:600;}
+  .sum-card .frac span{font-size:12.5px;color:var(--muted);font-weight:400;}
+  .sum-card .frac2{font-size:12px;color:var(--muted);margin-top:2px;font-family:'Helvetica Neue',Arial,sans-serif;}
+
+  .toolbar{
+    display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+  }
+  .toolbar input[type=text]{
+    font-family:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);font-size:13.5px;min-width:200px;
+  }
+  .toolbar select{
+    font-family:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--panel);font-size:13.5px;
+  }
+  .btn{
+    font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;border:1px solid var(--ink);
+    background:var(--ink);color:var(--paper);padding:9px 15px;border-radius:8px;cursor:pointer;white-space:nowrap;
+  }
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);}
+  .btn.small{padding:6px 10px;font-size:12px;}
+  .btn:hover{opacity:0.85;}
+  .spacer{flex:1;}
+
+  .grid-wrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow-x:auto;}
+  table{border-collapse:collapse;width:100%;min-width:680px;}
+  th,td{padding:0;border-bottom:1px solid var(--line);}
+  thead th{
+    font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;text-transform:uppercase;
+    letter-spacing:0.8px;color:var(--muted);text-align:left;padding:12px 10px;
+    border-bottom:2px solid var(--ink);position:sticky;top:0;background:var(--panel);white-space:nowrap;
+  }
+  thead th.portal-head{text-align:center;}
+  thead th.portal-head .grp{display:block;font-size:9px;opacity:0.8;margin-top:2px;}
+  tbody tr:hover{background:#fbfaf6;}
+  td.prod-cell{padding:10px;min-width:180px;}
+  td.prod-cell .pname{font-size:14.5px;font-weight:600;}
+  td.prod-cell .psku{font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:var(--muted);margin-top:2px;}
+  td.prod-cell .pdel{
+    font-family:'Helvetica Neue',Arial,sans-serif;font-size:10.5px;color:var(--status-issue);
+    cursor:pointer;margin-top:4px;display:none;
+  }
+  td.prod-cell:hover .pdel{display:inline-block;}
+
+  td.status-cell{text-align:center;padding:8px 6px;cursor:pointer;min-width:150px;}
+  td.status-cell:hover{background:#f4f0e6;}
+  .cell-inner{display:flex;flex-direction:column;gap:4px;align-items:center;}
+  .type-chip{
+    font-family:'Helvetica Neue',Arial,sans-serif;display:inline-flex;align-items:center;gap:4px;
+    font-size:10.5px;font-weight:600;padding:4px 9px;border-radius:20px;white-space:nowrap;
+  }
+  .type-chip .lbl{opacity:0.65;font-weight:500;}
+  .type-chip.none{background:var(--status-none-bg);color:#8a8171;}
+  .type-chip.process{background:var(--status-process-bg);color:var(--status-process);}
+  .type-chip.live{background:var(--status-live-bg);color:var(--status-live);}
+  .type-chip.issue{background:var(--status-issue-bg);color:var(--status-issue);}
+  .type-chip .dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+  .flag{color:var(--status-issue);}
+
+  .empty{padding:60px 20px;text-align:center;font-family:'Helvetica Neue',Arial,sans-serif;color:var(--muted);}
+  .empty .big{font-family:'Iowan Old Style',Georgia,serif;font-size:19px;color:var(--ink);margin-bottom:6px;}
+
+  .overlay{
+    position:fixed;inset:0;background:rgba(28,26,23,0.45);display:none;
+    align-items:center;justify-content:center;z-index:50;padding:20px;overflow-y:auto;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:var(--panel);border-radius:14px;padding:24px;width:100%;max-width:460px;
+    font-family:'Helvetica Neue',Arial,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,0.25);
+    position:relative;margin:auto;
+  }
+  .modal h3{font-family:'Iowan Old Style',Georgia,serif;margin:0 0 2px;font-size:19px;}
+  .modal .modal-sub{color:var(--muted);font-size:12.5px;margin-bottom:16px;}
+  .modal label{
+    display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin:12px 0 6px;
+  }
+  .modal input[type=text],.modal textarea,.modal input[type=url],.modal select{
+    width:100%;font-family:inherit;font-size:14px;padding:9px 11px;
+    border:1px solid var(--line);border-radius:8px;background:var(--paper);
+  }
+  .modal textarea{resize:vertical;min-height:50px;}
+  .status-options{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px;}
+  .status-options .opt{
+    flex:1;min-width:70px;text-align:center;padding:7px 4px;border-radius:8px;
+    border:1.5px solid var(--line);cursor:pointer;font-size:12px;font-weight:600;
+  }
+  .status-options .opt.sel-none.active{border-color:var(--status-none);background:var(--status-none-bg);}
+  .status-options .opt.sel-process.active{border-color:var(--status-process);background:var(--status-process-bg);color:var(--status-process);}
+  .status-options .opt.sel-live.active{border-color:var(--status-live);background:var(--status-live-bg);color:var(--status-live);}
+  .status-options .opt.sel-issue.active{border-color:var(--status-issue);background:var(--status-issue-bg);color:var(--status-issue);}
+  .type-section{border:1px solid var(--line);border-radius:10px;padding:14px;margin-top:14px;}
+  .type-section .type-title{font-weight:700;font-size:13px;margin-bottom:2px;}
+  .price-row{display:flex;gap:8px;align-items:center;}
+  .price-row input{flex:1;background:var(--paper);cursor:default;}
+  .updated-line{font-size:10.5px;color:var(--muted);margin-top:8px;}
+  .price-due-note{font-size:11px;color:var(--status-issue);margin-top:6px;font-weight:600;}
+  .modal-actions{display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:10px;}
+  .close-x{position:absolute;top:16px;right:18px;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;}
+
+  .portal-list{display:flex;flex-direction:column;gap:8px;margin-top:6px;max-height:220px;overflow-y:auto;}
+  .portal-row{display:flex;align-items:center;gap:8px;}
+  .portal-row input[type=text]{flex:1;}
+  .portal-row .rm{color:var(--status-issue);cursor:pointer;font-size:16px;}
+  .portal-row .ptypes{font-size:10.5px;color:var(--muted);white-space:nowrap;}
+  .add-portal-box{border-top:1px solid var(--line);margin-top:14px;padding-top:14px;}
+  .add-portal-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .add-portal-row select{width:130px;}
+  .add-portal-row input[type=text]{flex:1;min-width:140px;}
+  .check-row{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;}
+
+  footer{text-align:center;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:var(--muted);margin-top:40px;}
+
+  @media (max-width:640px){
+    header.top{flex-direction:column;align-items:flex-start;}
+    header.top .meta{text-align:left;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>Shri Balaji Traders</h1>
+      <div class="sub">Listing Tracker — Flipkart · Amazon · Own Website</div>
+    </div>
+    <div class="meta">Shared board — everyone with this link sees the same data</div>
+  </header>
+
+  <div class="summary" id="summaryStrip"></div>
+
+  <div class="toolbar">
+    <input type="text" id="searchBox" placeholder="Search product or SKU…">
+    <select id="filterPortal"><option value="">All accounts</option></select>
+    <select id="filterStatus">
+      <option value="">All statuses</option>
+      <option value="none">Not started</option>
+      <option value="process">In process</option>
+      <option value="live">Live</option>
+      <option value="issue">Issue</option>
+      <option value="pricedue">Price check due</option>
+    </select>
+    <div class="spacer"></div>
+    <button class="btn ghost" id="managePortalsBtn">Manage accounts</button>
+    <button class="btn" id="addProductBtn">+ Add product</button>
+  </div>
+
+  <div class="grid-wrap">
+    <table id="mainTable">
+      <thead><tr id="headRow"></tr></thead>
+      <tbody id="bodyRows"></tbody>
+    </table>
+    <div class="empty" id="emptyState" style="display:none;">
+      <div class="big">No products yet</div>
+      <div>Add your first product to start tracking listings across accounts.</div>
+    </div>
+  </div>
+
+  <footer>Data is stored for this board and shared with anyone who opens this link.</footer>
+</div>
+
+<!-- Status modal: one per account (column), holds all applicable listing types -->
+<div class="overlay" id="statusOverlay">
+  <div class="modal">
+    <span class="close-x" id="statusClose">&times;</span>
+    <h3 id="statusTitle">Product</h3>
+    <div class="modal-sub" id="statusSub">Account</div>
+    <div id="typeSectionsWrap"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="statusCancel">Cancel</button>
+      <button class="btn" id="statusSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add product modal -->
+<div class="overlay" id="productOverlay">
+  <div class="modal">
+    <span class="close-x" id="productClose">&times;</span>
+    <h3>Add product</h3>
+    <div class="modal-sub">Adds a row to the tracker</div>
+    <label>Product name</label>
+    <input type="text" id="newProdName" placeholder="e.g. Bath Belt">
+    <label>SKU (optional)</label>
+    <input type="text" id="newProdSku" placeholder="e.g. SB-0001">
+    <label>Category (optional)</label>
+    <input type="text" id="newProdCat" placeholder="e.g. Bath Accessories">
+    <div class="modal-actions">
+      <button class="btn ghost" id="productCancel">Cancel</button>
+      <button class="btn" id="productSave">Add product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Manage accounts modal -->
+<div class="overlay" id="portalOverlay">
+  <div class="modal">
+    <span class="close-x" id="portalClose">&times;</span>
+    <h3>Manage accounts</h3>
+    <div class="modal-sub">Rename, remove, or add a Flipkart / Amazon / website account</div>
+    <div class="portal-list" id="portalList"></div>
+    <div class="add-portal-box">
+      <label style="margin-top:0;">Add account</label>
+      <div class="add-portal-row">
+        <select id="newPortalGroup">
+          <option value="flipkart">Flipkart</option>
+          <option value="amazon">Amazon</option>
+          <option value="brand">Own Website</option>
+        </select>
+        <input type="text" id="newPortalName" placeholder="e.g. Flipkart — Account 4">
+        <button class="btn small" id="addPortalBtn">Add</button>
+      </div>
+      <div class="check-row" id="mappingCheckRow">
+        <input type="checkbox" id="newPortalMapping" checked>
+        <label for="newPortalMapping" style="margin:0;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--ink);">Also track mapping listing (Flipkart only)</label>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <div></div>
+      <button class="btn ghost" id="portalDone">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'sbt-listing-tracker-data';
+const SHARED = true;
+const SIX_MONTHS_MS = 182 * 24 * 60 * 60 * 1000;
+
+const STATUS_LABEL = {none:'Not started', process:'In process', live:'Live', issue:'Issue'};
+const TYPE_LABEL = {mapping:'Mapping', brand:'Own Brand'};
+
+let state = {
+  products: [
+    {id:"p-0004", name:"Rain Card", sku:"SB-0004", category:"Rainy Season"},
+    {id:"p-0009", name:"Capsule Umbrella Big", sku:"SB-0009", category:"Rainy Season"},
+    {id:"p-0010", name:"Capsule Umbrella Small", sku:"SB-0010", category:"Rainy Season"},
+    {id:"p-0050", name:"Rectangle Case Umbrella", sku:"SB-0050", category:"Rainy Season"},
+    {id:"p-0076", name:"Bottle Umbrella", sku:"SB-0076", category:"Rainy Season"},
+    {id:"p-0011", name:"6 Diya Urli", sku:"SB-0011", category:"Diwali Items"},
+    {id:"p-0068", name:"Black Dhoop Dani", sku:"SB-0068", category:"Diwali Items"},
+    {id:"p-0069", name:"Golden Dhoop Dani", sku:"SB-0069", category:"Diwali Items"},
+    {id:"p-0070", name:"Kapoor Dani", sku:"SB-0070", category:"Diwali Items"},
+    {id:"p-0078", name:"Crystal Tree T-Light Candle Holder", sku:"SB-0078", category:"Diwali Items"},
+    {id:"p-0079", name:"Crystal Hanging T-Light Candle Holder", sku:"SB-0079", category:"Diwali Items"},
+    {id:"p-0080", name:"Swastik Diya", sku:"SB-0080", category:"Diwali Items"},
+    {id:"p-0081", name:"Peacock T-Light Candle Holder", sku:"SB-0081", category:"Diwali Items"},
+    {id:"p-0082", name:"Shubh Labh-1", sku:"SB-0082", category:"Diwali Items"},
+    {id:"p-0083", name:"Dolak T-Light Candle Holder", sku:"SB-0083", category:"Diwali Items"},
+    {id:"p-0084", name:"Laxmi Ganesh Wall Hanging", sku:"SB-0084", category:"Diwali Items"},
+    {id:"p-0085", name:"Wooden Elephant Shubh Labh Hanging", sku:"SB-0085", category:"Diwali Items"},
+    {id:"p-0086", name:"Lotus T-Light Candle Holder", sku:"SB-0086", category:"Diwali Items"},
+    {id:"p-0087", name:"Tortoise Diya", sku:"SB-0087", category:"Diwali Items"},
+    {id:"p-0088", name:"T-Light Candles (Box of 50)", sku:"SB-0088", category:"Diwali Items"},
+    {id:"p-0089", name:"Gold Plated Small Butterfly Diya Urli", sku:"SB-0089", category:"Diwali Items"},
+    {id:"p-0090", name:"Sunflower Candle Light Holder", sku:"SB-0090", category:"Diwali Items"},
+    {id:"p-0091", name:"Touch Lamp (5 Model Mix)", sku:"SB-0091", category:"Gifting"},
+    {id:"p-0092", name:"Swastik Diya Urli", sku:"SB-0092", category:"Diwali Items"},
+    {id:"p-0093", name:"Shubh Labh-2 (Fancy Stone + Pearl)", sku:"SB-0093", category:"Diwali Items"},
+    {id:"p-0094", name:"Lotus T-Light Candle Holder-2", sku:"SB-0094", category:"Diwali Items"},
+    {id:"p-0095", name:"Wisteria Flower Wall Hanging", sku:"SB-0095", category:"Home Improvement"},
+    {id:"p-0096", name:"Peacock Urli Small", sku:"SB-0096", category:"Diwali Items"},
+    {id:"p-0097", name:"Fancy Potli", sku:"SB-0097", category:"Gifting"},
+    {id:"p-0098", name:"Shubh Labh-3 (Pearl Krishna)", sku:"SB-0098", category:"Diwali Items"},
+    {id:"p-0099", name:"Lotus Hanging", sku:"SB-0099", category:"Diwali Items"},
+    {id:"p-0100", name:"Ladoo Diya", sku:"SB-0100", category:"Diwali Items"},
+    {id:"p-0101", name:"Hanging Pom Pom", sku:"SB-0101", category:"Diwali Items"},
+    {id:"p-0102", name:"Elephant Candle Holder", sku:"SB-0102", category:"Diwali Items"},
+    {id:"p-0103", name:"Shubh Labh-4 (Blue Kundan)", sku:"SB-0103", category:"Diwali Items"},
+    {id:"p-0104", name:"Cushion Shubh Labh", sku:"SB-0104", category:"Diwali Items"},
+    {id:"p-0105", name:"Unicorn Lamp", sku:"SB-0105", category:"Baby Products"},
+    {id:"p-0106", name:"Panda Lamp", sku:"SB-0106", category:"Baby Products"},
+    {id:"p-0107", name:"Bunny Lamp", sku:"SB-0107", category:"Baby Products"},
+    {id:"p-0108", name:"Sleeping Bunny Lamp", sku:"SB-0108", category:"Baby Products"},
+    {id:"p-0109", name:"Fruit Feeder Teether", sku:"SB-0109", category:"Baby Products"},
+    {id:"p-0110", name:"Imerti Candle", sku:"SB-0110", category:"Diwali Items"},
+    {id:"p-0111", name:"Brass Leaf Diya", sku:"SB-0111", category:"Diwali Items"},
+    {id:"p-0112", name:"Chinese Glass Wiper", sku:"SB-0112", category:"Cleaning"},
+    {id:"p-0113", name:"Bamboo Clip (20pc Pack)", sku:"SB-0113", category:"Home Improvement"},
+    {id:"p-0114", name:"Coconut Opener", sku:"SB-0114", category:"Home Improvement"},
+    {id:"p-0115", name:"Powder Puff-1", sku:"SB-0115", category:"Baby Products"},
+    {id:"p-0116", name:"Mini Mop", sku:"SB-0116", category:"Cleaning"},
+    {id:"p-0117", name:"Kaju Katli Candle", sku:"SB-0117", category:"Diwali Items"},
+    {id:"p-0118", name:"Steel Clothesline (20m)", sku:"SB-0118", category:"Home Improvement"},
+    {id:"p-0119", name:"Kitchen Mat Set (2 Pcs)", sku:"SB-0119", category:"Home Improvement"},
+    {id:"p-0120", name:"Portable Weighing Scale (50kg)", sku:"SB-0120", category:"Home Improvement"},
+    {id:"p-0121", name:"Microfiber Glove", sku:"SB-0121", category:"Cleaning"},
+    {id:"p-0122", name:"U-Shaped Baby Toothbrush", sku:"SB-0122", category:"Baby Products"},
+    {id:"p-0123", name:"Sink Brush", sku:"SB-0123", category:"Cleaning"},
+    {id:"p-0124", name:"Portable Sealing Machine (500mAh)", sku:"SB-0124", category:"Home Improvement"},
+    {id:"p-0125", name:"Double Side Sink Brush", sku:"SB-0125", category:"Cleaning"},
+    {id:"p-0126", name:"Round Sink Brush", sku:"SB-0126", category:"Cleaning"},
+    {id:"p-0127", name:"Fruit Teether", sku:"SB-0127", category:"Baby Products"},
+    {id:"p-0128", name:"Baby Hand Mitten Teether", sku:"SB-0128", category:"Baby Products"},
+    {id:"p-0129", name:"Silicone Oven Glove", sku:"SB-0129", category:"Home Improvement"},
+    {id:"p-0130", name:"Silicone Lid (Stretch Set)", sku:"SB-0130", category:"Home Improvement"},
+    {id:"p-0131", name:"Baby Potty Seat", sku:"SB-0131", category:"Baby Products"},
+    {id:"p-0132", name:"Baby Bib", sku:"SB-0132", category:"Baby Products"},
+    {id:"p-0133", name:"Baby Tokri Bib", sku:"SB-0133", category:"Baby Products"},
+    {id:"p-0134", name:"Bike Face Mask (Heavy Quality)", sku:"SB-0134", category:"Home Improvement"},
+    {id:"p-0135", name:"Silicone Ice Genie Bucket", sku:"SB-0135", category:"Home Improvement"},
+    {id:"p-0136", name:"Round Bathroom Mat (Grey)", sku:"SB-0136", category:"Home Improvement"},
+    {id:"p-0137", name:"Round Bathroom Mat (Blue)", sku:"SB-0137", category:"Home Improvement"},
+    {id:"p-0138", name:"3 Pcs Tumbler Set", sku:"SB-0138", category:"Home Improvement"},
+    {id:"p-0139", name:"Finger Tally Counter", sku:"SB-0139", category:"Home Improvement"},
+    {id:"p-0140", name:"3Pc Wire Brush Set", sku:"SB-0140", category:"Home Improvement"},
+    {id:"p-0141", name:"Electric Gas Lighter (USB Arc)", sku:"SB-0141", category:"Home Improvement"},
+    {id:"p-0142", name:"2-in-1 Soap Dispenser with Sponge", sku:"SB-0142", category:"Cleaning"},
+    {id:"p-0143", name:"Backpack Rain Cover", sku:"SB-0143", category:"Rainy Season"},
+    {id:"p-0144", name:"Rattle Playing Teether", sku:"SB-0144", category:"Baby Products"},
+    {id:"p-0145", name:"Rectangle Bathroom Mat", sku:"SB-0145", category:"Home Improvement"},
+    {id:"p-0146", name:"Powder Puff-2", sku:"SB-0146", category:"Baby Products"},
+    {id:"p-0147", name:"Sleeve Bib", sku:"SB-0147", category:"Baby Products"},
+    {id:"p-0148", name:"Baby Spoon Feeder", sku:"SB-0148", category:"Baby Products"},
+    {id:"p-0149", name:"Baby 4-in-1 Nail Manicure Kit", sku:"SB-0149", category:"Baby Products"},
+    {id:"p-0150", name:"Baby Knee Pad-2", sku:"SB-0150", category:"Baby Products"},
+    {id:"p-0151", name:"Baby Rattle Teether (Ring)", sku:"SB-0151", category:"Baby Products"},
+    {id:"p-0152", name:"Baby Nose Cleaner", sku:"SB-0152", category:"Baby Products"},
+    {id:"p-0153", name:"Baby Clogs (Sizes 18-29)", sku:"SB-0153", category:"Baby Products"},
+    {id:"p-0154", name:"Baby Sandal (Sizes 15-20)", sku:"SB-0154", category:"Baby Products"},
+    {id:"p-0155", name:"2-in-1 Baby Steel Feeder (290ml)", sku:"SB-0155", category:"Baby Products"},
+    {id:"p-0156", name:"Baby Dry Sheet", sku:"SB-0156", category:"Baby Products"},
+    {id:"p-0157", name:"Bracelets", sku:"SB-0157", category:"Gifting"},
+    {id:"p-0158", name:"Plastic Kharata (Broom)", sku:"SB-0158", category:"Cleaning"},
+    {id:"p-0159", name:"Foldable Plastic Hanger", sku:"SB-0159", category:"Home Improvement"},
+    {id:"p-0160", name:"Toilet Brush", sku:"SB-0160", category:"Cleaning"},
+    {id:"p-0161", name:"Rattle Teether-2", sku:"SB-0161", category:"Baby Products"},
+    {id:"p-0162", name:"Elastic Strap Cycle Rope (10m)", sku:"SB-0162", category:"Home Improvement"},
+    {id:"p-0163", name:"Loofa", sku:"SB-0163", category:"Bath Accessories"},
+    {id:"p-0164", name:"Lint Remover", sku:"SB-0164", category:"Home Improvement"},
+    {id:"p-0165", name:"Silicone Bottle Brush", sku:"SB-0165", category:"Cleaning"},
+    {id:"p-0166", name:"Baby ABCD Play Mat", sku:"SB-0166", category:"Baby Products"},
+    {id:"p-0167", name:"10 Diya Urli (10 Inch)", sku:"SB-0167", category:"Diwali Items"},
+    {id:"p-0168", name:"7 Diya Lotus Urli (10 Inch)", sku:"SB-0168", category:"Diwali Items"},
+    {id:"p-0169", name:"Carpet Roller", sku:"SB-0169", category:"Cleaning"},
+    {id:"p-0170", name:"Mop Refill", sku:"SB-0170", category:"Cleaning"},
+    {id:"p-0171", name:"Diya Urli (8 Inch)", sku:"SB-0171", category:"Diwali Items"},
+    {id:"p-0172", name:"Pouch Umbrella", sku:"SB-0172", category:"Rainy Season"},
+    {id:"p-0173", name:"Indian Glass Wiper", sku:"SB-0173", category:"Cleaning"},
+    {id:"p-0174", name:"Sink Wire (130cm)", sku:"SB-0174", category:"Cleaning"},
+    {id:"p-0175", name:"Microfiber Car Sponge", sku:"SB-0175", category:"Cleaning"},
+    {id:"p-0176", name:"Transparent Motivational Bottle (2000ml)", sku:"SB-0176", category:"Home Improvement"},
+    {id:"p-0177", name:"Gel Socks", sku:"SB-0177", category:"Home Improvement"},
+    {id:"p-0178", name:"Sheru Duster", sku:"SB-0178", category:"Cleaning"},
+    {id:"p-0001", name:"Microfiber Cloth 600 GSM", sku:"SB-0001", category:"Cleaning"},
+    {id:"p-0002", name:"Jewellery Box (Big)", sku:"SB-0002", category:"Organisers"},
+    {id:"p-0003", name:"Jewellery Box (Small)", sku:"SB-0003", category:"Organisers"},
+    {id:"p-0005", name:"Shoe Wash Bag", sku:"SB-0005", category:"Cleaning"},
+    {id:"p-0006", name:"Vacuum Storage Bag", sku:"SB-0006", category:"Home Improvement"},
+    {id:"p-0007", name:"Apron", sku:"SB-0007", category:"Kitchen"},
+    {id:"p-0008", name:"Photo Frame Hook", sku:"SB-0008", category:"Home Improvement"},
+    {id:"p-0012", name:"Bottle Cleaning Brush", sku:"SB-0012", category:"Home Improvement"},
+    {id:"p-0013", name:"Cloth Clip", sku:"SB-0013", category:"Home Improvement"},
+    {id:"p-0014", name:"Round Cloth Clip", sku:"SB-0014", category:"Home Improvement"},
+    {id:"p-0015", name:"Bath Belt", sku:"SB-0015", category:"Bath Accessories"},
+    {id:"p-0016", name:"Round Cloth Brush", sku:"SB-0016", category:"Home Improvement"},
+    {id:"p-0017", name:"Chinese Cloth Brush", sku:"SB-0017", category:"Home Improvement"},
+    {id:"p-0018", name:"Wooden Cloth Brush", sku:"SB-0018", category:"Home Improvement"},
+    {id:"p-0019", name:"YO-YO Sponge Wipes", sku:"SB-0019", category:"Home Improvement"},
+    {id:"p-0020", name:"Silicone Golf Toilet Brush", sku:"SB-0020", category:"Home Improvement"},
+    {id:"p-0021", name:"Kitchen Towel", sku:"SB-0021", category:"Home Improvement"},
+    {id:"p-0022", name:"Sleeping Panda Lamp", sku:"SB-0022", category:"Gifting"},
+    {id:"p-0023", name:"Motivational Bottle Set (3 pcs)", sku:"SB-0023", category:"Home Improvement"},
+    {id:"p-0024", name:"Household Latex Gloves", sku:"SB-0024", category:"Cleaning"},
+    {id:"p-0025", name:"Silicone Glove", sku:"SB-0025", category:"Cleaning"},
+    {id:"p-0026", name:"Wash Bag Set (3 pcs)", sku:"SB-0026", category:"Organisers"},
+    {id:"p-0027", name:"Stag Scissor", sku:"SB-0027", category:"Stationery"},
+    {id:"p-0028", name:"Scissor Small", sku:"SB-0028", category:"Stationery"},
+    {id:"p-0029", name:"Eyebrow Scissor", sku:"SB-0029", category:"Stationery"},
+    {id:"p-0030", name:"Stag Zig Zag Scissor", sku:"SB-0030", category:"Stationery"},
+    {id:"p-0031", name:"Barber Scissor", sku:"SB-0031", category:"Stationery"},
+    {id:"p-0032", name:"Folding Scissor", sku:"SB-0032", category:"Stationery"},
+    {id:"p-0033", name:"10.5\" Chinese Scissor", sku:"SB-0033", category:"Stationery"},
+    {id:"p-0034", name:"10\" Brass Scissor", sku:"SB-0034", category:"Stationery"},
+    {id:"p-0035", name:"Ear Fruit Teether", sku:"SB-0035", category:"Baby Products"},
+    {id:"p-0036", name:"Baby Pacifier-1", sku:"SB-0036", category:"Baby Products"},
+    {id:"p-0037", name:"Baby Pacifier-2", sku:"SB-0037", category:"Baby Products"},
+    {id:"p-0038", name:"Smily Knee Pad", sku:"SB-0038", category:"Baby Products"},
+    {id:"p-0039", name:"Baby Knee Pad", sku:"SB-0039", category:"Baby Products"},
+    {id:"p-0040", name:"Bath Brush", sku:"SB-0040", category:"Bath Accessories"},
+    {id:"p-0041", name:"Nail Clipper with Magnifier", sku:"SB-0041", category:"Baby Products"},
+    {id:"p-0042", name:"Medicine Drop", sku:"SB-0042", category:"Baby Products"},
+    {id:"p-0043", name:"Cloth Line with Clips", sku:"SB-0043", category:"Home Improvement"},
+    {id:"p-0044", name:"Colourful Carpet Brush", sku:"SB-0044", category:"Home Improvement"},
+    {id:"p-0045", name:"Microfiber Cloth 250 GSM", sku:"SB-0045", category:"Cleaning"},
+    {id:"p-0046", name:"Baby Steel Feeding Bottle", sku:"SB-0046", category:"Baby Products"},
+    {id:"p-0047", name:"Baby Finger Toothbrush", sku:"SB-0047", category:"Baby Products"},
+    {id:"p-0048", name:"Grey Carpet Brush", sku:"SB-0048", category:"Home Improvement"},
+    {id:"p-0049", name:"Banana Toothbrush", sku:"SB-0049", category:"Baby Products"},
+    {id:"p-0051", name:"Steel Hanger", sku:"SB-0051", category:"Home Improvement"},
+    {id:"p-0052", name:"1000ML Motivational Bottle", sku:"SB-0052", category:"Home Improvement"},
+    {id:"p-0053", name:"Motivational Bottle Set (3 pcs) - Heavy Quality", sku:"SB-0053", category:"Home Improvement"},
+    {id:"p-0054", name:"Grass Mat", sku:"SB-0054", category:"Home Improvement"},
+    {id:"p-0055", name:"Channa Mat", sku:"SB-0055", category:"Home Improvement"},
+    {id:"p-0056", name:"Tick Tack Diaper Insert", sku:"SB-0056", category:"Baby Products"},
+    {id:"p-0057", name:"Reusable Diaper", sku:"SB-0057", category:"Baby Products"},
+    {id:"p-0058", name:"Printed Reusable Diaper", sku:"SB-0058", category:"Baby Products"},
+    {id:"p-0059", name:"Diaper 5 Layer Insert (Black & White)", sku:"SB-0059", category:"Baby Products"},
+    {id:"p-0060", name:"18x18 Napkin", sku:"SB-0060", category:"Home Improvement"},
+    {id:"p-0061", name:"30x30 Inch Poche", sku:"SB-0061", category:"Cleaning"},
+    {id:"p-0062", name:"Chota Check Napkin 18x18", sku:"SB-0062", category:"Home Improvement"},
+    {id:"p-0063", name:"Giraffe Teether", sku:"SB-0063", category:"Baby Products"},
+    {id:"p-0064", name:"Tile Brush", sku:"SB-0064", category:"Cleaning"},
+    {id:"p-0065", name:"Shoe Bag", sku:"SB-0065", category:"Organisers"},
+    {id:"p-0066", name:"20m Cloth Rope", sku:"SB-0066", category:"Home Improvement"},
+    {id:"p-0067", name:"Winter Beanie Cap", sku:"SB-0067", category:"Winter Season"},
+    {id:"p-0071", name:"Car Duster", sku:"SB-0071", category:"Cleaning"},
+    {id:"p-0072", name:"Flower Hook", sku:"SB-0072", category:"Home Improvement"},
+    {id:"p-0073", name:"Neck Pillow", sku:"SB-0073", category:"Home Improvement"},
+    {id:"p-0074", name:"Bokomo Head Massager", sku:"SB-0074", category:"Stationery"},
+    {id:"p-0075", name:"Baby Electric Nail Trimmer", sku:"SB-0075", category:"Baby Products"},
+    {id:"p-0077", name:"Airfryer Tray", sku:"SB-0077", category:"Kitchen"}
+  ],
+  // each portal = one account = one column. `types` lists which listing types are tracked inside it.
+  portals: [
+    {id:'fk-sbts', name:'Flipkart — SBTs', group:'flipkart', types:['mapping','brand']},
+    {id:'fk-smile', name:'Flipkart — Smilekiddo', group:'flipkart', types:['mapping','brand']},
+    {id:'fk-vgs', name:'Flipkart — VGS Retail', group:'flipkart', types:['mapping','brand']},
+    {id:'az-vgs', name:'Amazon — VGS Retail', group:'amazon', types:['brand']},
+    {id:'az-sbtshome', name:'Amazon — SBTs Homecare', group:'amazon', types:['brand']},
+    {id:'brand-web', name:'Own Website — Shri Balaji Traders', group:'brand', types:['brand']}
+  ],
+  // status[productId::portalId::type] = {status, note, url, updatedAt, priceCheckedAt}
+  status: {}
+};
+
+let filters = {search:'', portal:'', status:''};
+let activeCell = null; // {pid, portalId}
+
+function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+function statusKey(pid, portalId, type){ return pid + '::' + portalId + '::' + type; }
+function getStatus(pid, portalId, type){ return state.status[statusKey(pid, portalId, type)] || {status:'none', note:'', url:'', priceCheckedAt:null}; }
+function isPriceCheckDue(s){
+  if(!s || s.status !== 'live') return false;
+  if(!s.priceCheckedAt) return true;
+  return (Date.now() - new Date(s.priceCheckedAt).getTime()) > SIX_MONTHS_MS;
+}
+function groupLabel(g){ return g === 'flipkart' ? 'Flipkart' : g === 'amazon' ? 'Amazon' : 'Website'; }
+function escapeHtml(s){
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function shortName(name){ return name.length > 20 ? name.slice(0,19) + '…' : name; }
+
+async function loadState(){
+  try{
+    const res = await window.storage.get(STORAGE_KEY, SHARED);
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      state = Object.assign(state, parsed);
+    }
+  }catch(e){ console.log('No existing data yet, starting fresh.'); }
+  render();
+}
+async function saveState(){
+  try{ await window.storage.set(STORAGE_KEY, JSON.stringify(state), SHARED); }
+  catch(e){ console.error('Storage save failed', e); alert('Could not save — please try again.'); }
+}
+
+function renderFilterPortalOptions(){
+  const sel = document.getElementById('filterPortal');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All accounts</option>' +
+    state.portals.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  sel.value = current;
+}
+
+function renderSummary(){
+  const strip = document.getElementById('summaryStrip');
+  const totalProducts = state.products.length;
+
+  let cards = state.portals.map(p => {
+    const color = p.group === 'flipkart' ? 'var(--flipkart)' : p.group === 'amazon' ? 'var(--amazon)' : 'var(--brand)';
+    const counts = p.types.map(type => {
+      let live = 0;
+      state.products.forEach(prod => { if(getStatus(prod.id, p.id, type).status === 'live') live++; });
+      return `${TYPE_LABEL[type]} ${live}/${totalProducts}`;
+    });
+    return `<div class="sum-card">
+      <div class="bar" style="background:${color}"></div>
+      <div class="name">${escapeHtml(p.name)}</div>
+      <div class="frac2">${counts.join(' · ')} live</div>
+    </div>`;
+  }).join('');
+
+  let dueCount = 0;
+  state.products.forEach(prod => {
+    state.portals.forEach(p => {
+      p.types.forEach(type => { if(isPriceCheckDue(getStatus(prod.id, p.id, type))) dueCount++; });
+    });
+  });
+  cards += `<div class="sum-card">
+    <div class="bar" style="background:var(--status-issue)"></div>
+    <div class="name">Price checks due</div>
+    <div class="frac" style="color:${dueCount ? 'var(--status-issue)' : 'inherit'}">${dueCount}<span> listings</span></div>
+  </div>`;
+
+  strip.innerHTML = cards;
+}
+
+function renderHead(){
+  const headRow = document.getElementById('headRow');
+  let html = '<th>Product</th>';
+  state.portals.forEach(p => {
+    html += `<th class="portal-head" title="${escapeHtml(p.name)}">${escapeHtml(shortName(p.name))}<span class="grp">${groupLabel(p.group)}</span></th>`;
+  });
+  headRow.innerHTML = html;
+}
+
+function passesFilters(prod){
+  if(filters.search){
+    const q = filters.search.toLowerCase();
+    const hay = (prod.name + ' ' + (prod.sku||'')).toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  if(filters.portal || filters.status){
+    const portalsToCheck = filters.portal ? state.portals.filter(p=>p.id===filters.portal) : state.portals;
+    let match = false;
+    portalsToCheck.forEach(p => {
+      p.types.forEach(type => {
+        const s = getStatus(prod.id, p.id, type);
+        if(!filters.status) match = true;
+        else if(filters.status === 'pricedue'){ if(isPriceCheckDue(s)) match = true; }
+        else if(s.status === filters.status) match = true;
+      });
+    });
+    if(!match) return false;
+  }
+  return true;
+}
+
+function renderBody(){
+  const body = document.getElementById('bodyRows');
+  const empty = document.getElementById('emptyState');
+  const table = document.getElementById('mainTable');
+  const visible = state.products.filter(passesFilters);
+
+  if(state.products.length === 0){
+    table.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  table.style.display = '';
+  empty.style.display = visible.length ? 'none' : 'block';
+  if(!visible.length){
+    empty.querySelector('.big').textContent = 'No matches';
+    empty.querySelector('div:last-child').textContent = 'Try clearing your search or filters.';
+  }
+
+  body.innerHTML = visible.map(prod => {
+    let cells = `<td class="prod-cell">
+        <div class="pname">${escapeHtml(prod.name)}</div>
+        ${prod.sku ? `<div class="psku">${escapeHtml(prod.sku)}${prod.category ? ' · ' + escapeHtml(prod.category) : ''}</div>` : (prod.category ? `<div class="psku">${escapeHtml(prod.category)}</div>` : '')}
+        <div class="pdel" data-pid="${prod.id}">Remove product</div>
+      </td>`;
+    state.portals.forEach(p => {
+      let badges = p.types.map(type => {
+        const s = getStatus(prod.id, p.id, type);
+        const hasNote = !!s.note;
+        const due = isPriceCheckDue(s);
+        const typePrefix = p.types.length > 1 ? `<span class="lbl">${TYPE_LABEL[type]}</span>` : '';
+        return `<span class="type-chip ${s.status}">${typePrefix}<span class="dot"></span>${STATUS_LABEL[s.status]}${hasNote ? '<span class="flag">✎</span>' : ''}${due ? '<span class="flag">₹!</span>' : ''}</span>`;
+      }).join('');
+      cells += `<td class="status-cell" data-pid="${prod.id}" data-portal="${p.id}">
+        <div class="cell-inner">${badges}</div>
+      </td>`;
+    });
+    return `<tr>${cells}</tr>`;
+  }).join('');
+}
+
+function render(){
+  renderFilterPortalOptions();
+  renderSummary();
+  renderHead();
+  renderBody();
+}
+
+/* ---------- status modal (whole column/cell = one or more type sections) ---------- */
+const statusOverlay = document.getElementById('statusOverlay');
+let pendingByType = {}; // type -> {status, note, url, priceCheckedAt}
+
+function openStatusModal(pid, portalId){
+  activeCell = {pid, portalId};
+  const prod = state.products.find(p=>p.id===pid);
+  const portal = state.portals.find(p=>p.id===portalId);
+
+  document.getElementById('statusTitle').textContent = prod.name;
+  document.getElementById('statusSub').textContent = portal.name;
+
+  pendingByType = {};
+  const wrap = document.getElementById('typeSectionsWrap');
+  wrap.innerHTML = portal.types.map(type => {
+    const s = getStatus(pid, portalId, type);
+    pendingByType[type] = {status:s.status, note:s.note||'', priceCheckedAt:s.priceCheckedAt||null};
+    const dueNow = isPriceCheckDue(s);
+    return `
+    <div class="type-section" data-type="${type}">
+      ${portal.types.length > 1 ? `<div class="type-title">${TYPE_LABEL[type]}</div>` : ''}
+      <label style="margin-top:${portal.types.length > 1 ? '8px' : '0'};">Status</label>
+      <div class="status-options" data-type="${type}">
+        <div class="opt sel-none ${s.status==='none'?'active':''}" data-v="none">Not started</div>
+        <div class="opt sel-process ${s.status==='process'?'active':''}" data-v="process">In process</div>
+        <div class="opt sel-live ${s.status==='live'?'active':''}" data-v="live">Live</div>
+        <div class="opt sel-issue ${s.status==='issue'?'active':''}" data-v="issue">Issue</div>
+      </div>
+      <label>Note (optional)</label>
+      <textarea class="f-note" data-type="${type}" placeholder="e.g. mapping pending, rejected for image issue…">${escapeHtml(s.note||'')}</textarea>
+      <label>Price last checked</label>
+      <div class="price-row">
+        <input type="text" class="f-price" data-type="${type}" readonly value="${s.priceCheckedAt ? new Date(s.priceCheckedAt).toLocaleDateString() : ''}" placeholder="Not checked yet">
+        <button class="btn ghost small mark-price-btn" type="button" data-type="${type}">Mark checked today</button>
+      </div>
+      <div class="price-due-note" data-type="${type}">${dueNow ? 'Price check due (6-monthly check)' : ''}</div>
+      <div class="updated-line">${s.updatedAt ? 'Last updated ' + new Date(s.updatedAt).toLocaleString() : 'Not updated yet'}</div>
+    </div>`;
+  }).join('');
+
+  statusOverlay.classList.add('show');
+}
+function closeStatusModal(){ statusOverlay.classList.remove('show'); activeCell = null; }
+document.getElementById('statusClose').onclick = closeStatusModal;
+document.getElementById('statusCancel').onclick = closeStatusModal;
+
+document.getElementById('typeSectionsWrap').addEventListener('click', e => {
+  const opt = e.target.closest('.opt');
+  if(opt){
+    const type = opt.closest('.status-options').dataset.type;
+    opt.parentElement.querySelectorAll('.opt').forEach(el=>el.classList.remove('active'));
+    opt.classList.add('active');
+    pendingByType[type].status = opt.dataset.v;
+    return;
+  }
+  const markBtn = e.target.closest('.mark-price-btn');
+  if(markBtn){
+    const type = markBtn.dataset.type;
+    const now = new Date().toISOString();
+    pendingByType[type].priceCheckedAt = now;
+    document.querySelector(`.f-price[data-type="${type}"]`).value = new Date(now).toLocaleDateString();
+    document.querySelector(`.price-due-note[data-type="${type}"]`).textContent = '';
+  }
+});
+document.getElementById('typeSectionsWrap').addEventListener('input', e => {
+  if(e.target.classList.contains('f-note')){ pendingByType[e.target.dataset.type].note = e.target.value.trim(); }
+});
+
+document.getElementById('statusSave').onclick = async () => {
+  if(!activeCell) return;
+  const now = new Date().toISOString();
+  Object.keys(pendingByType).forEach(type => {
+    const p = pendingByType[type];
+    state.status[statusKey(activeCell.pid, activeCell.portalId, type)] = {
+      status: p.status, note: p.note, updatedAt: now, priceCheckedAt: p.priceCheckedAt
+    };
+  });
+  await saveState();
+  render();
+  closeStatusModal();
+};
+
+document.getElementById('bodyRows').addEventListener('click', e => {
+  const cell = e.target.closest('.status-cell');
+  if(cell){ openStatusModal(cell.dataset.pid, cell.dataset.portal); return; }
+  const del = e.target.closest('.pdel');
+  if(del){ removeProduct(del.dataset.pid); }
+});
+
+async function removeProduct(pid){
+  const prod = state.products.find(p=>p.id===pid);
+  if(!prod) return;
+  if(!confirm(`Remove "${prod.name}" from the tracker? This also clears its status on every account.`)) return;
+  state.products = state.products.filter(p => p.id !== pid);
+  Object.keys(state.status).forEach(k => { if(k.startsWith(pid + '::')) delete state.status[k]; });
+  await saveState();
+  render();
+}
+
+/* ---------- add product modal ---------- */
+const productOverlay = document.getElementById('productOverlay');
+document.getElementById('addProductBtn').onclick = () => {
+  document.getElementById('newProdName').value = '';
+  document.getElementById('newProdSku').value = '';
+  document.getElementById('newProdCat').value = '';
+  productOverlay.classList.add('show');
+  setTimeout(()=>document.getElementById('newProdName').focus(), 50);
+};
+document.getElementById('productClose').onclick = () => productOverlay.classList.remove('show');
+document.getElementById('productCancel').onclick = () => productOverlay.classList.remove('show');
+document.getElementById('productSave').onclick = async () => {
+  const name = document.getElementById('newProdName').value.trim();
+  if(!name){ alert('Please enter a product name.'); return; }
+  const sku = document.getElementById('newProdSku').value.trim();
+  const category = document.getElementById('newProdCat').value.trim();
+  state.products.push({id: uid('prod'), name, sku, category});
+  await saveState();
+  render();
+  productOverlay.classList.remove('show');
+};
+
+/* ---------- manage accounts modal ---------- */
+const portalOverlay = document.getElementById('portalOverlay');
+function renderPortalList(){
+  const list = document.getElementById('portalList');
+  list.innerHTML = state.portals.map(p => `
+    <div class="portal-row" data-id="${p.id}">
+      <input type="text" value="${escapeHtml(p.name)}" data-id="${p.id}" class="portal-name-input">
+      <span class="ptypes">${p.types.map(t=>TYPE_LABEL[t]).join(' + ')}</span>
+      <span class="rm" data-id="${p.id}">&times;</span>
+    </div>
+  `).join('');
+}
+document.getElementById('managePortalsBtn').onclick = () => { renderPortalList(); portalOverlay.classList.add('show'); };
+document.getElementById('portalClose').onclick = () => portalOverlay.classList.remove('show');
+document.getElementById('portalDone').onclick = () => portalOverlay.classList.remove('show');
+
+document.getElementById('newPortalGroup').addEventListener('change', e => {
+  document.getElementById('mappingCheckRow').style.display = e.target.value === 'flipkart' ? 'flex' : 'none';
+});
+
+document.getElementById('portalList').addEventListener('change', async e => {
+  if(e.target.classList.contains('portal-name-input')){
+    const id = e.target.dataset.id;
+    const portal = state.portals.find(p=>p.id===id);
+    if(portal){ portal.name = e.target.value.trim() || portal.name; await saveState(); render(); }
+  }
+});
+document.getElementById('portalList').addEventListener('click', async e => {
+  const rm = e.target.closest('.rm');
+  if(rm){
+    const id = rm.dataset.id;
+    const portal = state.portals.find(p=>p.id===id);
+    if(!portal) return;
+    if(!confirm(`Remove account "${portal.name}"? This clears its status for all products.`)) return;
+    state.portals = state.portals.filter(p=>p.id!==id);
+    Object.keys(state.status).forEach(k => { if(k.includes('::' + id + '::')) delete state.status[k]; });
+    await saveState();
+    renderPortalList();
+    render();
+  }
+});
+document.getElementById('addPortalBtn').onclick = async () => {
+  const nameInput = document.getElementById('newPortalName');
+  const name = nameInput.value.trim();
+  if(!name){ alert('Enter a name for the new account.'); return; }
+  const group = document.getElementById('newPortalGroup').value;
+  let types = ['brand'];
+  if(group === 'flipkart'){
+    types = document.getElementById('newPortalMapping').checked ? ['mapping','brand'] : ['brand'];
+  }
+  state.portals.push({id: uid('portal'), name, group, types});
+  nameInput.value = '';
+  await saveState();
+  renderPortalList();
+  render();
+};
+
+/* ---------- filters ---------- */
+document.getElementById('searchBox').addEventListener('input', e => { filters.search = e.target.value; renderBody(); });
+document.getElementById('filterPortal').addEventListener('change', e => { filters.portal = e.target.value; renderBody(); });
+document.getElementById('filterStatus').addEventListener('change', e => { filters.status = e.target.value; renderBody(); });
+
+/* ---------- init ---------- */
+loadState();
+</script>
+</body>
+</html>
