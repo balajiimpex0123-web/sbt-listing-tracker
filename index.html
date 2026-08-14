@@ -285,6 +285,10 @@
         <input type="checkbox" id="newPortalMapping" checked>
         <label for="newPortalMapping" style="margin:0;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--ink);">Also track mapping listing (Flipkart only)</label>
       </div>
+      <div class="check-row" id="shoshyCheckRow">
+        <input type="checkbox" id="newPortalShoshy">
+        <label for="newPortalShoshy" style="margin:0;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--ink);">Also track Shoshy listing (Flipkart only)</label>
+      </div>
     </div>
     <div class="modal-actions">
       <div></div>
@@ -312,7 +316,7 @@ const BOARD_REF = db.collection('sbt-tracker').doc('board');
 const SIX_MONTHS_MS = 182 * 24 * 60 * 60 * 1000;
 
 const STATUS_LABEL = {none:'Not started', process:'In process', live:'Live', issue:'Issue', na:'Not applicable'};
-const TYPE_LABEL = {mapping:'Mapping', brand:'Own Brand'};
+const TYPE_LABEL = {mapping:'Mapping', brand:'Own Brand', shoshy:'Shoshy'};
 
 let state = {
   products: [
@@ -497,9 +501,9 @@ let state = {
   ],
   // each portal = one account = one column. `types` lists which listing types are tracked inside it.
   portals: [
-    {id:'fk-sbts', name:'Flipkart — SBTs', group:'flipkart', types:['mapping','brand']},
-    {id:'fk-smile', name:'Flipkart — Smilekiddo', group:'flipkart', types:['mapping','brand']},
-    {id:'fk-vgs', name:'Flipkart — VGS Retail', group:'flipkart', types:['mapping','brand']},
+    {id:'fk-sbts', name:'Flipkart — SBTs', group:'flipkart', types:['mapping','brand','shoshy']},
+    {id:'fk-smile', name:'Flipkart — Smilekiddo', group:'flipkart', types:['mapping','brand','shoshy']},
+    {id:'fk-vgs', name:'Flipkart — VGS Retail', group:'flipkart', types:['mapping','brand','shoshy']},
     {id:'az-vgs', name:'Amazon — VGS Retail', group:'amazon', types:['brand']},
     {id:'az-sbtshome', name:'Amazon — SBTs Homecare', group:'amazon', types:['brand']},
     {id:'brand-web', name:'Own Website — Shri Balaji Traders', group:'brand', types:['brand']}
@@ -537,6 +541,16 @@ function startRealtimeSync(){
         }catch(e){ console.error('Could not parse saved data', e); }
       }
     }
+    // migration: make sure every Flipkart account tracks Shoshy, even on boards saved before this was added
+    let migrated = false;
+    state.portals.forEach(p => {
+      if(p.group === 'flipkart' && !p.types.includes('shoshy')){
+        p.types.push('shoshy');
+        migrated = true;
+      }
+    });
+    if(migrated) saveState();
+
     firstSnapshotReceived = true;
     render();
   }, err => {
@@ -812,7 +826,9 @@ document.getElementById('portalClose').onclick = () => portalOverlay.classList.r
 document.getElementById('portalDone').onclick = () => portalOverlay.classList.remove('show');
 
 document.getElementById('newPortalGroup').addEventListener('change', e => {
-  document.getElementById('mappingCheckRow').style.display = e.target.value === 'flipkart' ? 'flex' : 'none';
+  const show = e.target.value === 'flipkart' ? 'flex' : 'none';
+  document.getElementById('mappingCheckRow').style.display = show;
+  document.getElementById('shoshyCheckRow').style.display = show;
 });
 
 document.getElementById('portalList').addEventListener('change', async e => {
@@ -843,7 +859,8 @@ document.getElementById('addPortalBtn').onclick = async () => {
   const group = document.getElementById('newPortalGroup').value;
   let types = ['brand'];
   if(group === 'flipkart'){
-    types = document.getElementById('newPortalMapping').checked ? ['mapping','brand'] : ['brand'];
+    if(document.getElementById('newPortalMapping').checked) types.push('mapping');
+    if(document.getElementById('newPortalShoshy').checked) types.push('shoshy');
   }
   state.portals.push({id: uid('portal'), name, group, types});
   nameInput.value = '';
